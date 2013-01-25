@@ -6,6 +6,8 @@
 #include<string.h>
 #include<unistd.h>
 
+// Merge with client
+
 int main (int args, char **argv) {
 	char *port;
 	if (args != 2) {
@@ -15,6 +17,7 @@ int main (int args, char **argv) {
 		port = argv[1];
 	}
 
+	// Fix this!
 	char buf[101];
 	buf[0] = '\0';
 	int request_sd, sd;
@@ -50,6 +53,7 @@ int main (int args, char **argv) {
 	fprintf(stderr, "Listening for connections on port '%s'\n", port);
 	while (1) {
 		fdscopy = fds;
+		// Fix this
 		rc = select(FD_SETSIZE, &fdscopy, NULL, NULL, &timeout);
 		if (rc < 0) {
 			break;
@@ -68,8 +72,8 @@ int main (int args, char **argv) {
 				if (FD_ISSET(i, &fdscopy)) {
 					if (i == request_sd) {
 						clientaddrlen = sizeof(struct sockaddr_in);
+						// Display client information
 						sd = accept(request_sd, (struct sockaddr*) &clientaddr, &clientaddrlen);
-						fprintf(stderr, "Port: %d %d\n", clientaddr.sin_port, sd);
 						FD_SET(sd, &fds);
 						connected = sd;
 					} else {

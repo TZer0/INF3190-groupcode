@@ -28,6 +28,7 @@ int main (int args, char **argv) {
 		fprintf(stderr,"Usage: %s [host] [port_number]\n", argv[0]);
 	}
 
+	// Increase character limit
 	char buf[101];
 	buf[0] = '\0';
 	int sd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -54,6 +55,7 @@ int main (int args, char **argv) {
 	fprintf(stderr, "Chatting with '%s' on port %s\n", host,  port);
 	while (1) {
 		fdscopy = fds;
+		// Fix this!
 		rc = select(FD_SETSIZE, &fdscopy, NULL, NULL, &timeout);
 		if (rc < 0) {
 			break;
@@ -63,6 +65,7 @@ int main (int args, char **argv) {
 		} else {
 			if (FD_ISSET(STDIN_FILENO, &fdscopy)) {
 				fgets(buf, 100, stdin);
+				// Fix this!
 				send(sd, buf, strlen(buf)+1, 0);
 
 			}
