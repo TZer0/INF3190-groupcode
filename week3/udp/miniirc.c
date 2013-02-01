@@ -6,15 +6,14 @@
 #include<string.h>
 #include<unistd.h>
 
-// Merge with client
+// Merged with client!
 
 int main (int args, char **argv) {
 	char *port, *host;
 	int server = 0;
 	int i, rc, connected = 0, sd = 0, len;
-	struct sockaddr_in clientaddr, serveraddr;
+	struct sockaddr_in addr;
 	struct timeval timeout;
-	// Fix this!
 	char ack = 1, pkg = 0, recvpkg = 0, sbuf[102], rbuf[102];
 	fd_set fds, fdscopy;
 
@@ -42,33 +41,31 @@ int main (int args, char **argv) {
 	socklen_t addrlen = sizeof(struct sockaddr_in);
 
 	FD_ZERO(&fds);
-	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+
+	if ((sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))< 0) {
+		printf("Failed to take socket, aborting!\n");
+		return -1;
+	}
 
 	if (server)  {
-		if ((sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))< 0) {
-			printf("Failed to take socket, aborting!\n");
-			return -1;
-		}
-
-		serveraddr.sin_family = AF_INET;
-		serveraddr.sin_addr.s_addr = INADDR_ANY;
-		serveraddr.sin_port = htons(atoi(port));
-		if ((bind(sd, (struct sockaddr*) &serveraddr, sizeof(struct sockaddr_in))) < 0) {
+		// This is a server, bind a port.
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		addr.sin_port = htons(atoi(port));
+		if ((bind(sd, (struct sockaddr*) &addr, sizeof(struct sockaddr_in))) < 0) {
 			printf("Failed to bind, aborting!\n");
 			return -1;
 		}
 
 		fprintf(stderr, "Listening for connections on port '%s'\n", port);
 	} else {
-		// This is a client.
-		sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-		memset(&serveraddr, 0, sizeof(struct sockaddr_in));
-		serveraddr.sin_family = AF_INET;
+		// This is a client, connect to the server
+		addr.sin_family = AF_INET;
 		struct hostent *he = gethostbyname(host);
-		memcpy(&serveraddr.sin_addr, he->h_addr, sizeof(struct in_addr));
-		serveraddr.sin_port = htons(atoi(port));
-		if (connect (sd, (struct sockaddr *) &serveraddr, sizeof(struct sockaddr_in) ) > 0) {
+		memcpy(&addr.sin_addr, he->h_addr, sizeof(struct in_addr));
+		addr.sin_port = htons(atoi(port));
+		if (connect (sd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in) ) > 0) {
 			fprintf(stderr, "Connect error\n");
 			return -1;
 
@@ -78,19 +75,19 @@ int main (int args, char **argv) {
 	FD_SET(sd, &fds);
 	FD_SET(STDIN_FILENO, &fds);
 
-	memset(&clientaddr, 0, sizeof(struct sockaddr_in));
 	while (1) {
 		fdscopy = fds;
-		// Fix this
 		timeout.tv_sec = 0;
 		timeout.tv_usec = 1;
-		rc = select(FD_SETSIZE, &fdscopy, NULL, NULL, &timeout);
+		// Reasonable value for select.
+		rc = select(sd+1, &fdscopy, NULL, NULL, &timeout);
 		if (rc < 0) {
 			perror("Select error");
 			break;
 		} else if (rc == 0) {
+			// If we havn't received an ACK, we spam the other end with the message.
 			if (ack == 0) {
-				sendto(sd, sbuf, strlen(&sbuf[1])+2, 0,(struct sockaddr *)&serveraddr, addrlen );
+				sendto(sd, sbuf, strlen(&sbuf[1])+2, 0,(struct sockaddr *)&addr, addrlen );
 			}
 		} else {
 			if (ack == 1 && FD_ISSET(STDIN_FILENO, &fdscopy)) {
@@ -98,28 +95,42 @@ int main (int args, char **argv) {
 				pkg++;
 				sbuf[0] = pkg;
 				printf("Sending: %s\n", &sbuf[1]);
-				sendto(sd, sbuf, strlen(&sbuf[1])+2, 0,(struct sockaddr *)&serveraddr, addrlen );
+				sendto(sd, sbuf, strlen(&sbuf[1])+2, 0,(struct sockaddr *)&addr, addrlen );
+				// we now await an ACK from the other side.
 				ack = 0;
 
 			}
 
 			if (!connected && server) {
-				accept(sd, (struct sockaddr*) &clientaddr, &addrlen);
+				// We re-use addr if on the server.
+				accept(sd, (struct sockaddr*) &addr, &addrlen);
 				FD_SET(sd, &fds);
-				printf("Connected.");
+				printf("Connected.\n");
 				connected = 1;
 			} 
 
 			if (FD_ISSET(sd, &fdscopy)) {
-				if (0 < (len = recvfrom(sd, &rbuf, 100, 0, (struct sockaddr *)&serveraddr, &addrlen))) {
+				if (0 < (len = recvfrom(sd, &rbuf, 100, 0, (struct sockaddr *)&addr, &addrlen))) {
 					if (len == 1) {
-						ack = 1;
+						if (rbuf[0] == pkg) {
+							// Ack received
+							ack = 1;
+						}
 					} else { 
 						if (rbuf[0] != recvpkg) {
 							recvpkg = rbuf[0];
+#ifdef DEBUG
+							printf("Received %d: %s", rbuf[0], &rbuf[1]); 
+#else
 							printf("Received: %s", &rbuf[1]); 
+#endif
+						} else {
+#ifdef DEBUG
+							printf("dupe %d\n", rbuf[0]);
+#endif
 						}
-						sendto(sd, &recvpkg, 1, 0,(struct sockaddr *)&serveraddr, addrlen );
+						// We ACK the message
+						sendto(sd, &recvpkg, 1, 0,(struct sockaddr *)&addr, addrlen );
 
 					}
 				}
