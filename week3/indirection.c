@@ -7,6 +7,6 @@ int main() {
 	char **b;
 	char c = 'c';
 	a = &c;
-	*b = a;
-	printf("%c\n", **b);
+	b = a;
+	printf("%c\n", *b);
 }
