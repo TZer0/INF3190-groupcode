@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #define MAX_LEN 40
-#define DISPLAY_PROMPT printf("yolo >> "); fflush(stdout)
+#define DISPLAY_PROMPT do { printf("yolo >> "); fflush(stdout); } while (0)
 // stderr is *not* linebuffered, so we can avoid fflush call by:
 //#define DISPLAY_PROMPT fprintf(stderr, "yolo >> ");
 
