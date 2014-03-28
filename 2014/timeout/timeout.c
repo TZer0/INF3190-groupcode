@@ -27,7 +27,7 @@ static int has_asked_for_help = 0;
 static timeout_t *timeout;
 
 
-void free_timeout(void)
+static void free_timeout()
 {
     if (timeout)
         free(timeout);
